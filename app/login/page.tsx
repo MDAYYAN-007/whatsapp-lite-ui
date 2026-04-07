@@ -73,6 +73,7 @@ export default function LoginPage() {
 
       setAuthenticated(true);
       setCurrentUser(username);
+      router.push("/chat");
     } catch {
       setError("Invalid username or password.");
     } finally {

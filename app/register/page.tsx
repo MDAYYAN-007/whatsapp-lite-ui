@@ -76,6 +76,7 @@ export default function RegisterPage() {
 
       setAuthenticated(true);
       setCurrentUser(username);
+      router.push("/chat");
     } catch (err: any) {
       setError(err.message || "Registration failed.");
     } finally {

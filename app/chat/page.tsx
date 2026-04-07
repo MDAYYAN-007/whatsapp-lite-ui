@@ -23,6 +23,7 @@ function conversationKey(a: string, b: string) {
 export default function ChatPage() {
   const wsRef = useRef<WebSocket | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const prevChatRef = useRef<ActiveChat>(null);
 
   const [currentUser, setCurrentUser] = useState("");
   const [joinedRooms, setJoinedRooms] = useState<string[]>([]);
@@ -70,7 +71,7 @@ export default function ChatPage() {
 
       if (msg.type === "stop_typing") {
         if (msg.room) {
-          const room = msg.room; // narrow to string
+          const room = msg.room;
 
           setTypingUsers((prev) => ({
             ...prev,
@@ -155,6 +156,15 @@ export default function ChatPage() {
           [room]: [...(prev[room] ?? []), msg],
         }));
       }
+
+      if ((msg.type === "join" || msg.type === "leave") && msg.room) {
+        const room = msg.room;
+
+        setRoomMessages((prev) => ({
+          ...prev,
+          [room]: [...(prev[room] ?? []), msg],
+        }));
+      }
     };
 
     ws.onclose = () => console.log("WS closed");
@@ -166,12 +176,32 @@ export default function ChatPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [roomMessages, privateMessages, activeChat]);
 
+  useEffect(() => {
+    const ws = wsRef.current;
+    const prevChat = prevChatRef.current;
+
+    // If we were typing in previous chat, stop it
+    if (ws && prevChat && isTyping) {
+      if (prevChat.type === "room") {
+        ws.send(JSON.stringify({ type: "stop_typing", room: prevChat.id }));
+      }
+
+      if (prevChat.type === "private") {
+        ws.send(JSON.stringify({ type: "stop_typing", to: prevChat.id }));
+      }
+    }
+
+    setIsTyping(false);
+    setInput("");
+
+    prevChatRef.current = activeChat;
+  }, [activeChat]);
+
   const sendMessage = () => {
     if (!wsRef.current || !input.trim() || !activeChat) return;
 
     const text = input;
 
-    // ✅ SEND stop_typing once when sending message
     if (isTyping) {
       if (activeChat.type === "room") {
         wsRef.current.send(
